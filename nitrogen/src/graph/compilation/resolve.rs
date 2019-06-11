@@ -297,12 +297,11 @@ pub(crate) fn resolve_input(
             resource_moves_from.insert(new_id, old_id);
             resource_moves_to.insert(old_id, new_id);
 
-            // If the old id was something that is made in another pass it means we depend on
-            // another pass
+            // If the id is something that is made in another pass
+            // it means we depend on another pass
             if !pass_creates
                 .get(&pass)
-                .map(|s| s.contains(&old_id))
-                .unwrap_or(false)
+                .map_or(false, |s| s.contains(&old_id))
             {
                 depends.insert(old_id);
             }
@@ -314,27 +313,19 @@ pub(crate) fn resolve_input(
         let pass_writes = pass_writes.entry(pass).or_default();
 
         for (name, ty, binding) in ress {
-            let id = if let Some(id) = resource_name_lookup.get(&name) {
-                *id
+            if let Some(id) = resource_name_lookup.get(&name).cloned() {
+                pass_writes.insert((id, ty, binding));
+                // If the id is something that is made in another pass
+                // it means we depend on another pass
+                if !pass_creates.get(&pass).map_or(false, |s| s.contains(&id)) {
+                    depends.insert(id);
+                }
             } else {
                 errors.push(CompileError::ReferencedInvalidResource {
                     pass,
                     res: name.clone(),
                 });
-                continue;
             };
-
-            pass_writes.insert((id, ty, binding));
-
-            // If the id is something that is made in another pass it means we depend on another
-            // pass
-            if !pass_creates
-                .get(&pass)
-                .map(|s| s.contains(&id))
-                .unwrap_or(false)
-            {
-                depends.insert(id);
-            }
         }
     }
 
@@ -343,26 +334,18 @@ pub(crate) fn resolve_input(
         let pass_reads = pass_reads.entry(pass).or_default();
 
         for (name, ty, binding, sampler_binding) in ress {
-            let id = if let Some(id) = resource_name_lookup.get(&name) {
-                *id
+            if let Some(id) = resource_name_lookup.get(&name).cloned() {
+                pass_reads.insert((id, ty, binding, sampler_binding));
+                // If the id is something that is made in another pass
+                // it means we depend on another pass
+                if !pass_creates.get(&pass).map_or(false, |s| s.contains(&id)) {
+                    depends.insert(id);
+                }
             } else {
                 errors.push(CompileError::ReferencedInvalidResource {
                     pass,
                     res: name.clone(),
                 });
-                continue;
-            };
-
-            pass_reads.insert((id, ty, binding, sampler_binding));
-
-            // If the id is something that is made in another pass it means we depend on another
-            // pass
-            if !pass_creates
-                .get(&pass)
-                .map(|s| s.contains(&id))
-                .unwrap_or(false)
-            {
-                depends.insert(id);
             }
         }
     }

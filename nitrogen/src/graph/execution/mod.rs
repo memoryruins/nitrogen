@@ -167,12 +167,9 @@ impl Backbuffer {
     }
 
     pub(crate) fn is_compatible(&self, compat: &BTreeMap<ResourceName, ImageHandle>) -> bool {
-        for (name, handle) in compat {
-            if self.images.get(name) != Some(handle) {
-                return false;
-            }
-        }
-        true
+        compat
+            .iter()
+            .all(|(name, handle)| self.images.get(name) == Some(handle))
     }
 
     pub(crate) fn make_compat(
@@ -181,12 +178,9 @@ impl Backbuffer {
     ) -> Option<BTreeMap<ResourceName, ImageHandle>> {
         let mut map = BTreeMap::new();
 
-        for names in passes.values() {
-            for name in names {
-                let handle = self.images.get(name)?;
-
-                map.insert(name.clone(), *handle);
-            }
+        for name in passes.values().flatten() {
+            let handle = self.images.get(name)?;
+            map.insert(name.clone(), *handle);
         }
 
         Some(map)

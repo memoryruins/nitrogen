@@ -187,14 +187,13 @@ pub(crate) fn compile_graph(
     let targets = builder
         .targets
         .iter()
-        .filter_map(|res_name| match resolved.name_lookup.get(res_name) {
-            None => {
+        .filter_map(|res_name| {
+            resolved.name_lookup.get(res_name).cloned().or_else(|| {
                 errors.push(CompileError::InvalidTargetResource {
                     res: res_name.clone(),
                 });
                 None
-            }
-            Some(id) => Some(*id),
+            })
         })
         .collect();
 
@@ -221,17 +220,12 @@ pub(crate) fn compile_graph(
     };
 
     // keep track of resources that need to be remade when the context changes.
-    let contextual_resources = {
-        let mut set = HashSet::new();
-
-        for id in resolved.infos.keys() {
-            if resolved.is_resource_context_dependent(*id) {
-                set.insert(*id);
-            }
-        }
-
-        set
-    };
+    let contextual_resources = resolved
+        .infos
+        .keys()
+        .filter(|&&id| resolved.is_resource_context_dependent(id))
+        .cloned()
+        .collect();
 
     if errors.is_empty() {
         Ok(CompiledGraph {
